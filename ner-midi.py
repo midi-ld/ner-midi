@@ -5,6 +5,8 @@ import os
 import pprint
 import operator
 import copy
+import requests
+import time
 
 class NERMidi(object):
     def __init__(self, __path):
@@ -52,6 +54,22 @@ class NERMidi(object):
 
         return None
 
+    def dbpedia_link(self):
+	dbp_lookup_uri = "http://lookup.dbpedia.org/api/search/PrefixSearch?QueryClass=&MaxHits=5"
+	params = { 'MaxHits' : 5}
+	headers = { 'Accept' : 'application/json' }
+	for r in self.records:
+	    r['entities_dbp'] = {}
+	    for e in r['entities']:
+		params['QueryString'] = e
+		resp = requests.get(dbp_lookup_uri, headers=headers, params=params).json()
+		if e not in r['entities_dbp']:
+		    r['entities_dbp'] = { e: resp }
+		else:
+		    r['entities_dbp'][e] = resp
+	    time.sleep(1) 
+	    
+
     def print_records(self):
         pp = pprint.PrettyPrinter(indent=4)
         for r in self.records:
@@ -68,6 +86,7 @@ if __name__ == "__main__":
     path = sys.argv[1]
     ner_midi = NERMidi(path)
     ner_midi.process()
+    ner_midi.dbpedia_link()
     ner_midi.print_records()
 
     exit(0)
