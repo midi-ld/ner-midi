@@ -7,6 +7,8 @@ import operator
 import copy
 import requests
 import time
+import Levenshtein
+import hashlib
 
 class NERMidi(object):
     def __init__(self, __path):
@@ -18,7 +20,10 @@ class NERMidi(object):
         for root, dirs, files in os.walk(path):
             for f in files:
                 if '.mid' in f:
+                    md5_id = hashlib.md5(open(os.path.join(root, f), 'rb').read()).hexdigest()
+
                     record = {}
+                    record['id'] = md5_id
                     # Full path of the MIDI file
                     record['midi_path'] = os.path.join(root, f)
                     # MIDI file name
@@ -55,20 +60,37 @@ class NERMidi(object):
         return None
 
     def dbpedia_link(self):
-	dbp_lookup_uri = "http://lookup.dbpedia.org/api/search/PrefixSearch?QueryClass=&MaxHits=5"
-	params = { 'MaxHits' : 5}
-	headers = { 'Accept' : 'application/json' }
-	for r in self.records:
-	    r['entities_dbp'] = {}
-	    for e in r['entities']:
-		params['QueryString'] = e
-		resp = requests.get(dbp_lookup_uri, headers=headers, params=params).json()
-		if e not in r['entities_dbp']:
-		    r['entities_dbp'] = { e: resp }
-		else:
-		    r['entities_dbp'][e] = resp
-	    time.sleep(1) 
-	    
+    	dbp_lookup_uri = "http://lookup.dbpedia.org/api/search/PrefixSearch?QueryClass=&MaxHits=5"
+    	params = { 'MaxHits' : 5}
+    	headers = { 'Accept' : 'application/json' }
+    	for r in self.records:
+    	    r['entities_dbp'] = {}
+    	    for e in r['entities']:
+    		params['QueryString'] = e
+    		resp = requests.get(dbp_lookup_uri, headers=headers, params=params).json()
+    		if e not in r['entities_dbp']:
+    		    r['entities_dbp'] = { e: resp }
+    		else:
+    		    r['entities_dbp'][e] = resp
+    	    time.sleep(1)
+
+    def dbpedia_str_sim_uri_link(self):
+        with open('dbp.txt', 'r') as dbp:
+            dbp_uris = dbp.readlines()
+
+        for r in self.records:
+            mld_str = " ".join(r['entities'])
+            hs = 0
+            match = None
+            for s in dbp_uris:
+                dbp_str = s.split('/')[-1].split('>')[0].replace('_', ' ')
+                ratio = Levenshtein.ratio(mld_str, dbp_str)
+                if ratio > hs:
+                    hs = ratio
+                    match = dbp_str
+            # print "Best match for " + mld_str + " is " + match + " with ratio " + str(hs)
+            print "<http://purl.org/midi-ld/pattern/" + r['id'] + "> <http://www.w3.org/2002/07/owl#sameAs> <http://dbpedia.org/resource/" + match.replace(' ', '_') + "> ."
+
 
     def print_records(self):
         pp = pprint.PrettyPrinter(indent=4)
@@ -86,7 +108,8 @@ if __name__ == "__main__":
     path = sys.argv[1]
     ner_midi = NERMidi(path)
     ner_midi.process()
-    ner_midi.dbpedia_link()
-    ner_midi.print_records()
+    ner_midi.dbpedia_str_sim_uri_link()
+    # ner_midi.dbpedia_link()
+    # ner_midi.print_records()
 
     exit(0)
