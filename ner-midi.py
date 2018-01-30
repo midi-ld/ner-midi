@@ -108,8 +108,8 @@ if __name__ == "__main__":
     path = sys.argv[1]
     ner_midi = NERMidi(path)
     ner_midi.process()
-    ner_midi.dbpedia_str_sim_uri_link()
+    # ner_midi.dbpedia_str_sim_uri_link()
     # ner_midi.dbpedia_link()
-    # ner_midi.print_records()
+    ner_midi.print_records()
 
     exit(0)
